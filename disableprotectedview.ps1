@@ -1,4 +1,6 @@
-﻿#Created by Jonathan Amir for Impact Netowrks ldt.
+﻿#Created by Jonathan Amir.
+#Free for use
+#Use at your own risk!
 
 function disableProtectView {
 
