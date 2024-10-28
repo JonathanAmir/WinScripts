@@ -1,0 +1,65 @@
+### This script is intended to map out the permissions of a Windows hosted network share.
+## Free for use for all
+function Show-TreeWithPermissions {
+    param (
+        [string]$directory
+    )
+
+    if (-not (Test-Path $directory)) {
+        Write-Host "Directory does not exist."
+        return
+    }
+
+    # CSV output file path
+    $csvPath = "C:\Temp\folderPermissions.csv"
+    # Initialize CSV file with headers
+    @"
+FolderPath,InheritanceStatus,User,Permissions
+"@ | Out-File -FilePath $csvPath -Encoding UTF8
+
+    # Recursive function to display tree structure with permissions
+    function Display-TreeWithPermissions {
+        param (
+            [string]$currentDir,
+            [int]$level = 0
+        )
+
+        # Check permissions for the current directory
+        $acl = Get-Acl -Path $currentDir
+        $isInherited = -not $acl.AreAccessRulesProtected
+        $inheritanceStatus = if ($isInherited) { "Inherited" } else { "No Inheritance" }
+        
+        # Display directory with inheritance status
+        $indent = "│  " * $level
+        Write-Host "${indent}├── $([System.IO.Path]::GetFileName($currentDir)) ($inheritanceStatus)"
+
+        # Write to CSV: if no access rules, still log the folder and inheritance status
+        if ($acl.Access.Count -eq 0) {
+            "$currentDir,$inheritanceStatus,,No permissions set" | Out-File -FilePath $csvPath -Append -Encoding UTF8
+        }
+        
+        # List permissions for each user/group and write to CSV
+        foreach ($access in $acl.Access) {
+            $user = $access.IdentityReference
+            $permissions = $access.FileSystemRights
+
+            # Write permission details to CSV
+            "$currentDir,$inheritanceStatus,$user,$permissions" | Out-File -FilePath $csvPath -Append -Encoding UTF8
+
+            # Display in console
+            Write-Host "${indent}│     └── User: $user, Permissions: $permissions"
+        }
+
+        # Recursively call Display-TreeWithPermissions for subdirectories
+        Get-ChildItem -Path $currentDir -Directory | ForEach-Object {
+            Display-TreeWithPermissions -currentDir $_.FullName -level ($level + 1)
+        }
+    }
+
+    # Start the recursive display and CSV export
+    Display-TreeWithPermissions -currentDir $directory
+    Write-Host "Permissions written to $csvPath"
+}
+
+# Test with the specified directory
+Show-TreeWithPermissions -directory "C:\Testing"
